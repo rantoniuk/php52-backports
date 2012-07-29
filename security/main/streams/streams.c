@@ -131,6 +131,7 @@ void php_stream_display_wrapper_errors(php_stream_wrapper *wrapper, const char *
 	char *tmp = estrdup(path);
 	char *msg;
 	int free_msg = 0;
+	php_stream_wrapper orig_wrapper;
 
 	if (wrapper) {
 		if (wrapper->err_count > 0) {
@@ -175,7 +176,16 @@ void php_stream_display_wrapper_errors(php_stream_wrapper *wrapper, const char *
 	}
 
 	php_strip_url_passwd(tmp);
+	if (wrapper) {
+		/* see bug #52935 */
+		orig_wrapper = *wrapper;
+		wrapper->err_stack = NULL;
+		wrapper->err_count = 0;
+	}
 	php_error_docref1(NULL TSRMLS_CC, tmp, E_WARNING, "%s: %s", caption, msg);
+	if (wrapper) {
+		*wrapper = orig_wrapper;
+	}
 	efree(tmp);
 	if (free_msg) {
 		efree(msg);
@@ -870,7 +880,7 @@ PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *re
 		just_read = (stream->writepos - stream->readpos) - len;
 		len += just_read;
 
-		if (just_read < toread) {
+		if (just_read == 0) {
 			break;
 		}
 	}
@@ -1138,7 +1148,7 @@ PHPAPI int _php_stream_seek(php_stream *stream, off_t offset, int whence TSRMLS_
 	}
 
 	/* emulate forward moving seeks with reads */
-	if (whence == SEEK_CUR && offset > 0) {
+	if (whence == SEEK_CUR && offset >= 0) {
 		char tmp[1024];
 		while(offset >= sizeof(tmp)) {
 			if (php_stream_read(stream, tmp, sizeof(tmp)) == 0) {
@@ -1247,6 +1257,9 @@ PHPAPI size_t _php_stream_copy_to_mem(php_stream *src, char **buf, size_t maxlen
 		ptr = *buf = pemalloc_rel_orig(maxlen + 1, persistent);
 		while ((len < maxlen) && !php_stream_eof(src)) {
 			ret = php_stream_read(src, ptr, maxlen - len);
+			if (!ret) {
+				break;
+			}
 			len += ret;
 			ptr += ret;
 		}
@@ -2100,6 +2113,11 @@ PHPAPI int _php_stream_scandir(char *dirname, char **namelist[], int flags, php_
 			if (vector_size == 0) {
 				vector_size = 10;
 			} else {
+				if(vector_size*2 < vector_size) {
+					/* overflow */
+					efree(vector);
+					return FAILURE;
+				}
 				vector_size *= 2;
 			}
 			vector = (char **) safe_erealloc(vector, vector_size, sizeof(char *), 0);
@@ -2108,11 +2126,6 @@ PHPAPI int _php_stream_scandir(char *dirname, char **namelist[], int flags, php_
 		vector[nfiles] = estrdup(sdp.d_name);
 
 		nfiles++;
-		if(vector_size < 10 || nfiles == 0) {
-			/* overflow */
-			efree(vector);
-			return FAILURE;
-		}
 	}
 	php_stream_closedir(stream);
 
