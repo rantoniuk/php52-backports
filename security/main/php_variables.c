@@ -29,7 +29,6 @@
 #include "SAPI.h"
 #include "php_logos.h"
 #include "zend_globals.h"
-#include "php_ini.h"
 
 /* for systems that need to override reading of environment variables */
 void _php_import_environment_variables(zval *array_ptr TSRMLS_DC);
@@ -179,11 +178,7 @@ PHPAPI void php_register_variable_ex(char *var_name, zval *val, zval *track_vars
 			if (!index) {
 				MAKE_STD_ZVAL(gpc_element);
 				array_init(gpc_element);
-				if (zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p) == FAILURE) {
-					zval_ptr_dtor(&gpc_element);
-					zval_dtor(val);
-					return;
-				}
+				zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			} else {
 				if (PG(magic_quotes_gpc)) {
 					escaped_index = php_addslashes(index, index_len, &index_len, 0 TSRMLS_CC);
@@ -192,20 +187,9 @@ PHPAPI void php_register_variable_ex(char *var_name, zval *val, zval *track_vars
 				}
 				if (zend_symtable_find(symtable1, escaped_index, index_len + 1, (void **) &gpc_element_p) == FAILURE
 					|| Z_TYPE_PP(gpc_element_p) != IS_ARRAY) {
-					if (zend_hash_num_elements(symtable1) <= PG(max_input_vars)) {
-						if (zend_hash_num_elements(symtable1) == PG(max_input_vars)) {
-							php_error_docref(NULL TSRMLS_CC, E_WARNING, "Input variables exceeded %ld. To increase the limit change max_input_vars in php.ini.", PG(max_input_vars));
-						}
-						MAKE_STD_ZVAL(gpc_element);
-						array_init(gpc_element);
-						zend_symtable_update(symtable1, escaped_index, index_len + 1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
-					} else {
-						if (index != escaped_index) {
-							efree(escaped_index);
-						}
-						zval_dtor(val);
-						return;
-					}
+					MAKE_STD_ZVAL(gpc_element);
+					array_init(gpc_element);
+					zend_symtable_update(symtable1, escaped_index, index_len + 1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 				}
 				if (index != escaped_index) {
 					efree(escaped_index);
@@ -230,9 +214,7 @@ plain_var:
 		gpc_element->value = val->value;
 		Z_TYPE_P(gpc_element) = Z_TYPE_P(val);
 		if (!index) {
-			if (zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p) == FAILURE) {
-				zval_ptr_dtor(&gpc_element);
-			}
+			zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 		} else {
 			if (PG(magic_quotes_gpc)) { 
 				escaped_index = php_addslashes(index, index_len, &index_len, 0 TSRMLS_CC);
@@ -250,14 +232,7 @@ plain_var:
 				zend_symtable_exists(symtable1, escaped_index, index_len + 1)) {
 				zval_ptr_dtor(&gpc_element);
 			} else {
-				if (zend_hash_num_elements(symtable1) <= PG(max_input_vars)) {
-					if (zend_hash_num_elements(symtable1) == PG(max_input_vars)) {
-						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Input variables exceeded %ld. To increase the limit change max_input_vars in php.ini.", PG(max_input_vars));
-					}
-					zend_symtable_update(symtable1, escaped_index, index_len + 1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
-				} else {
-					zval_ptr_dtor(&gpc_element);
-				}
+				zend_symtable_update(symtable1, escaped_index, index_len + 1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			}
 			if (escaped_index != index) {
 				efree(escaped_index);
@@ -452,7 +427,6 @@ void _php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 
 	/* turn off magic_quotes while importing environment variables */
 	int magic_quotes_gpc = PG(magic_quotes_gpc);
-
 	PG(magic_quotes_gpc) = 0;
 
 	for (env = environ; env != NULL && *env != NULL; env++) {
@@ -472,7 +446,6 @@ void _php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 	if (t != buf && t != NULL) {
 		efree(t);
 	}
-
 	PG(magic_quotes_gpc) = magic_quotes_gpc;
 }
 

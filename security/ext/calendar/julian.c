@@ -146,7 +146,6 @@
  **************************************************************************/
 
 #include "sdncal.h"
-#include <limits.h>
 
 #define JULIAN_SDN_OFFSET         32083
 #define DAYS_PER_5_MONTHS  153
@@ -165,22 +164,15 @@ void SdnToJulian(
 	int dayOfYear;
 
 	if (sdn <= 0) {
-		goto fail;
+		*pYear = 0;
+		*pMonth = 0;
+		*pDay = 0;
+		return;
 	}
-	/* Check for overflow */
-	if (sdn > (LONG_MAX - JULIAN_SDN_OFFSET * 4 + 1) / 4 || sdn < LONG_MIN / 4) {
-		goto fail;
-	}
-	temp = sdn * 4 + (JULIAN_SDN_OFFSET * 4 - 1);
+	temp = (sdn + JULIAN_SDN_OFFSET) * 4 - 1;
 
 	/* Calculate the year and day of year (1 <= dayOfYear <= 366). */
-	{
-		long yearl = temp / DAYS_PER_4_YEARS;
-		if (yearl > INT_MAX || yearl < INT_MIN) {
-			goto fail;
-		}
-		year = (int) yearl;
-	}
+	year = temp / DAYS_PER_4_YEARS;
 	dayOfYear = (temp % DAYS_PER_4_YEARS) / 4 + 1;
 
 	/* Calculate the month and day of month. */
@@ -204,12 +196,6 @@ void SdnToJulian(
 	*pYear = year;
 	*pMonth = month;
 	*pDay = day;
-	return;
-
-fail:
-	*pYear = 0;
-	*pMonth = 0;
-	*pDay = 0;
 }
 
 long int JulianToSdn(

@@ -62,8 +62,6 @@
 #include "php_main.h"
 #include "fopen_wrappers.h"
 #include "ext/standard/php_standard.h"
-#include "ext/standard/url.h"
-
 #ifdef PHP_WIN32
 #include <io.h>
 #include <fcntl.h>
@@ -611,14 +609,11 @@ void cgi_php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 		int filter_arg = (array_ptr == PG(http_globals)[TRACK_VARS_ENV])?PARSE_ENV:PARSE_SERVER;
 
 		/* turn off magic_quotes while importing environment variables */
-		if (PG(magic_quotes_gpc)) {
-			zend_alter_ini_entry_ex("magic_quotes_gpc", sizeof("magic_quotes_gpc"), "0", 1, ZEND_INI_SYSTEM, ZEND_INI_STAGE_ACTIVATE, 1);
-		}
+		PG(magic_quotes_gpc) = 0;
 		for (zend_hash_internal_pointer_reset_ex(&request->env, &pos);
-			zend_hash_get_current_key_ex(&request->env, &var, &var_len, &idx, 0, &pos) == HASH_KEY_IS_STRING &&
-			zend_hash_get_current_data_ex(&request->env, (void **) &val, &pos) == SUCCESS;
-			zend_hash_move_forward_ex(&request->env, &pos)
-		) {
+		     zend_hash_get_current_key_ex(&request->env, &var, &var_len, &idx, 0, &pos) == HASH_KEY_IS_STRING &&
+		     zend_hash_get_current_data_ex(&request->env, (void **) &val, &pos) == SUCCESS;
+		     zend_hash_move_forward_ex(&request->env, &pos)) {
 			unsigned int new_val_len;
 			if (sapi_module.input_filter(filter_arg, var, val, strlen(*val), &new_val_len TSRMLS_CC)) {
 				php_register_variable_safe(var, *val, new_val_len, array_ptr TSRMLS_CC);
@@ -1356,9 +1351,6 @@ int main(int argc, char *argv[])
 	int status = 0;
 #endif
 #endif /* PHP_FASTCGI */
-	char *query_string;
-	char *decoded_query_string;
-	int skip_getopt = 0;
 
 #if 0 && defined(PHP_DEBUG)
 	/* IIS is always making things more difficult.  This allows
@@ -1413,21 +1405,7 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-	if((query_string = getenv("QUERY_STRING")) != NULL && strchr(query_string, '=') == NULL) {
-		/* we've got query string that has no = - apache CGI will pass it to command line */
-		unsigned char *p;
-		decoded_query_string = strdup(query_string);
-		php_url_decode(decoded_query_string, strlen(decoded_query_string));
-		for (p = decoded_query_string; *p &&  *p <= ' '; p++) {
-			/* skip all leading spaces */
-		}
-		if(*p == '-') {
-			skip_getopt = 1;
-		}
-		free(decoded_query_string);
-	}
-
-	while (!skip_getopt && (c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0)) != -1) {
+	while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 0)) != -1) {
 		switch (c) {
 			case 'c':
 				if (cgi_sapi_module.php_ini_path_override) {
@@ -1681,7 +1659,7 @@ consult the installation file that came with this distribution, or visit \n\
 #endif /* FASTCGI */
 
 	zend_first_try {
-		while (!skip_getopt && (c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 1)) != -1) {
+		while ((c = php_getopt(argc, argv, OPTIONS, &php_optarg, &php_optind, 1)) != -1) {
 			switch (c) {
 #if PHP_FASTCGI
 				case 'T':
@@ -1806,6 +1784,7 @@ consult the installation file that came with this distribution, or visit \n\
 						behavior=PHP_MODE_INDENT;
 						break;
 #endif
+
   				case 'q': /* do not generate HTTP headers */
 						no_headers = 1;
 						break;

@@ -1009,10 +1009,6 @@ SAPI_API SAPI_POST_HANDLER_FUNC(rfc1867_post_handler) /* {{{ */
 					}
 					tmp++;
 				}
-				/* Brackets should always be closed */
-				if(c != 0) {
-					skip_upload = 1;
-				}
 			}
 
 			total_bytes = cancel_upload = 0;
@@ -1219,7 +1215,7 @@ filedone:
 #endif
 
 			if (!is_anonymous) {
-				if (s && s >= filename) {
+				if (s && s > filename) {
 					safe_php_register_variable(lbuf, s+1, strlen(s+1), NULL, 0 TSRMLS_CC);
 				} else {
 					safe_php_register_variable(lbuf, filename, strlen(filename), NULL, 0 TSRMLS_CC);
@@ -1232,7 +1228,7 @@ filedone:
 			} else {
 				snprintf(lbuf, llen, "%s[name]", param);
 			}
-			if (s && s >= filename) {
+			if (s && s > filename) {
 				register_http_post_files_variable(lbuf, s+1, http_post_files, 0 TSRMLS_CC);
 			} else {
 				register_http_post_files_variable(lbuf, filename, http_post_files, 0 TSRMLS_CC);

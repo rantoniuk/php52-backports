@@ -223,7 +223,7 @@ PHP_FUNCTION(shmop_read)
 		RETURN_FALSE;
 	}
 
-	if (count < 0 || start > (INT_MAX - count) || start + count > shmop->size) {
+	if (start + count > shmop->size || count < 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "count is out of range");
 		RETURN_FALSE;
 	}
